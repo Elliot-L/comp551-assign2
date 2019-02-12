@@ -64,7 +64,9 @@ total_instances = positive_instances + negative_instances
 num_docs = len(total_instances)
 word_counts = dict()
 doc_occurences = dict()
+
 # for now just creating words by splitting on whitespace
+print( "\nPreprocessing lines" )
 for line_index in trange( len( total_instances ) ):
     line = total_instances[ line_index ]
 #for line in total_instances:
@@ -80,7 +82,6 @@ for line_index in trange( len( total_instances ) ):
             word_counts[t] = 1
             doc_occurences[t] = 1
 
-
 # sorting words by frequency, taking the top N (for now 300)
 top_counts = sorted(word_counts.items(), key=operator.itemgetter(1), reverse=True)[:NUM_WORDS]
 
@@ -90,7 +91,10 @@ random.shuffle(total_instances)
 
 # creating a list of processed training examples, with each word converted to its tf-idf score
 labelled_samples = list()
-for sample in total_instances:
+print( "\nVectorizing" )
+for sample_index in trange( len( total_instances ) ):
+    sample = total_instances[sample_index]
+#for sample in total_instances:
     word_vector = [0.0] * NUM_WORDS
     tokens = preprocess_line(sample)
     for token in tokens:
