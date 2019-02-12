@@ -4,12 +4,12 @@ from sklearn.model_selection import LeaveOneOut
 import numpy as np
 
 
-def k_fold(X,y):
+def k_fold(X,y, k=5):
     X_train_list = []
     X_test_list = []
     y_train_list = []
     y_test_list = []
-    kf = KFold(n_splits=2)
+    kf = KFold(n_splits=k)
     for train_index, test_index in kf.split(X):
         print("TRAIN:", train_index, "TEST:", test_index)
         X_train, X_test = X[train_index], X[test_index]
@@ -21,12 +21,12 @@ def k_fold(X,y):
     return X_train_list,X_test_list,y_train_list,y_test_list
 
 
-def strat_k_fold(X,y):
+def strat_k_fold(X,y, k=5):
     X_train_list = []
     X_test_list = []
     y_train_list = []
     y_test_list = []
-    kf = StratifiedKFold(n_splits=2)
+    kf = StratifiedKFold(n_splits=k)
     for train_index, test_index in kf.split(X):
         print("TRAIN:", train_index, "TEST:", test_index)
         X_train, X_test = X[train_index], X[test_index]
