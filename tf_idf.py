@@ -4,10 +4,44 @@ import operator
 import random
 import json
 import csv
-# import nltk
+import re
+import nltk
 
 NUM_WORDS = 300
 SHUFFLE_SEED = 4
+
+def has_some_alphanumeric_characters( line ):
+    """
+    Re wrapper returning True/False depending on whether the input line (string) contains at least one alphabetic character.
+    
+    Input:
+        
+        line: a string.
+        
+    Returns:
+    
+        boolean True/False
+        
+    """
+    if re.search('[a-zA-Z]', line):
+        return True
+    else:
+        return False
+
+def word_tokenize( line: str ):
+    """
+    Tokenizes input string into words (where each word has >= 1 letter).
+    
+    Input:
+        
+        line: string to tokenize into words.
+            
+    Returns: 
+        
+        a list of all tokens with >= 1 alphabetic character.
+        
+    """
+    return [ word for word in nltk.word_tokenize( line ) if has_some_alphanumeric_characters( word ) ]
 
 
 def preprocess_line(line):
