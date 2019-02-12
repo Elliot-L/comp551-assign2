@@ -6,6 +6,7 @@ import json
 import csv
 import re
 import nltk
+from tqdm import trange
 
 NUM_WORDS = 300
 SHUFFLE_SEED = 4
@@ -64,7 +65,9 @@ num_docs = len(total_instances)
 word_counts = dict()
 doc_occurences = dict()
 # for now just creating words by splitting on whitespace
-for line in total_instances:
+for line_index in trange( len( total_instances ) ):
+    line = total_instances[ line_index ]
+#for line in total_instances:
     tokens = preprocess_line(line)
     curr_tokens = set()
     for t in tokens:
