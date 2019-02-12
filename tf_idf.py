@@ -6,6 +6,8 @@ import json
 import csv
 import re
 import nltk
+from nltk.stem import WordNetLemmatizer
+
 from tqdm import trange
 
 NUM_WORDS = 300
@@ -44,6 +46,40 @@ def word_tokenize( line: str ):
     """
     return [ word for word in nltk.word_tokenize( line ) if has_some_alphanumeric_characters( word ) ]
 
+def decontract( line: str ):
+    """
+    Re wrapper to expand contractions (e.g. 'would_n't_' -> 'would not').
+
+    Arguments:
+
+        line: string to decontract.
+
+    Returns:
+
+        input string without contractions.
+
+    """
+    re.sub( r"n't", r" not ", line )
+
+def lemmatize( word: str, lemmatizer=None  ):
+    """
+    nltk.WordNetLemmatizer() wrapper to lemmatize a word.
+
+    Arguments:
+
+        word: string version of word to lemmatize.
+
+        lemmatizer: None or some nltk.stem.wordnet.WordNetLemmatizer object.
+
+    Returns:
+
+        Lemmatized version of the input word.
+
+    """
+    if lemmatizer is None:
+        lemmatizer = WordNetLemmatizer()
+    
+    return lemmatizer.lemmatize( word )
 
 def preprocess_line(line):
     return list(line.lower().split(' '))
