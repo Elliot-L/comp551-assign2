@@ -7,7 +7,6 @@ import csv
 import re
 import nltk
 from nltk.stem import WordNetLemmatizer
-
 from tqdm import trange
 
 NUM_WORDS = 300
