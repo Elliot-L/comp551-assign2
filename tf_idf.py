@@ -16,12 +16,12 @@ def preprocess_line(line):
 
 positive_instances = list()
 for file in os.listdir(os.path.join('train', 'pos')):
-    with open(os.path.join('train', 'pos', file)) as f:
+    with open(os.path.join('train', 'pos', file), encoding="utf8") as f:
         positive_instances.append(f.read())
 
 negative_instances = list()
 for file in os.listdir(os.path.join('train', 'neg')):
-    with open(os.path.join('train', 'neg', file)) as f:
+    with open(os.path.join('train', 'neg', file), encoding="utf8") as f:
         negative_instances.append(f.read())
 
 total_instances = positive_instances + negative_instances
@@ -75,7 +75,7 @@ for sample in total_instances:
     labelled_samples.append(new_sample)
 # print(labelled_samples[0])
 
-with open('train_tfidf.txt', 'w') as f:
+with open('train_tfidf.txt', 'w', encoding="utf8") as f:
     csvwriter = csv.writer(f)
     csvwriter.writerows(labelled_samples)
 
