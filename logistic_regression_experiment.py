@@ -6,7 +6,7 @@ from pipelines import k_fold
 
 features = list()
 labels = list()
-with open("train_tfidf.txt") as data_file:
+with open("train_tfidf.txt", encoding='utf8', newline='\n') as data_file:
     csv_reader = csv.reader(data_file, delimiter=',')
     for row in csv_reader:
         features.append(np.array(json.loads(row[0])))
@@ -15,7 +15,7 @@ X = np.array(features)
 y = np.array(labels)
 print('done')
 
-splits = k_fold(X, y, k=2)
+splits = k_fold(X, y, k=5)
 num_sets = len(splits[0])
 accuracies = list()
 for i in range(num_sets):
