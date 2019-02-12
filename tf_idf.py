@@ -112,7 +112,8 @@ for sample_index in trange( len( total_instances ) ):
     if sample in positive_instances:
         label = 1.0
 
-    new_sample = np.array([np.array(word_vector), np.array(label)])
+    # new_sample = np.array([np.array(word_vector), np.array(label)])
+    new_sample = [word_vector, label]
     labelled_samples.append(new_sample)
 # print(labelled_samples[0])
 
