@@ -2,3 +2,6 @@ https://scikit-learn.org/stable/auto_examples/model_selection/grid_search_text_f
 
 http://crr.ugent.be/archives/1330
 http://crr.ugent.be/archives/1003
+
+NLTK's sentence tokenizer
+nltk.tokenize.punkt, https://www.nltk.org/api/nltk.tokenize.html
