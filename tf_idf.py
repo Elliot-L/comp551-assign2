@@ -3,6 +3,7 @@ import numpy as np
 import operator
 import random
 import json
+import csv
 # import nltk
 
 NUM_WORDS = 300
@@ -72,9 +73,9 @@ for sample in total_instances:
 
     new_sample = np.array([np.array(word_vector), np.array(label)])
     labelled_samples.append(new_sample)
-print(labelled_samples[0])
+# print(labelled_samples[0])
 
-with open('train_tfidf.json', 'w') as fp:
-    json.dump(labelled_samples, fp)
-
+with open('train_tfidf.txt', 'w') as f:
+    csvwriter = csv.writer(f)
+    csvwriter.writerows(labelled_samples)
 
