@@ -1,15 +1,14 @@
-import os
+import os, operator, random, json, csv, re, nltk, pickle
+
 import numpy as np
-import operator
-import random
-import json
-import csv
-import re
-import nltk
+
+from scipy.sparse import csr_matrix
 from nltk.stem import WordNetLemmatizer
 from tqdm import trange
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
-NUM_WORDS = 300
+
+NUM_WORDS = 252192 # 300
 SHUFFLE_SEED = 4
 
 def has_some_alphanumeric_characters( line ):
@@ -83,76 +82,146 @@ def lemmatize( word: str, lemmatizer=None  ):
 def preprocess_line(line):
     return list(line.lower().split(' '))
 
+def fetch_instances( path_to_pos, path_to_neg, verbose=True ):
 
-positive_instances = list()
-for file in os.listdir(os.path.join('train', 'pos')):
-    with open(os.path.join('train', 'pos', file), encoding="utf8") as f:
-        positive_instances.append(f.read())
+    positive_instances = list()
+    if os.path.isdir( path_to_pos ):
+        for file in os.listdir( os.path.join( 'train', 'pos' ) ):
+            with open( os.path.join( 'train', 'pos', file ), encoding="utf8" ) as f:
+                positive_instances.append( f.read() )
+    
+    if verbose:
+        print("finished reading positive instance files")
 
-negative_instances = list()
-for file in os.listdir(os.path.join('train', 'neg')):
-    with open(os.path.join('train', 'neg', file), encoding="utf8") as f:
-        negative_instances.append(f.read())
+    negative_instances = list()
+    if os.path.isdir( path_to_neg ):
+        for file in os.listdir( os.path.join( 'train', 'neg' ) ):
+            with open( os.path.join( 'train', 'neg', file ), encoding="utf8" ) as f:
+                negative_instances.append( f.read() )
 
-total_instances = positive_instances + negative_instances
+    if verbose:
+        print("finished reading negative instance files")
 
-num_docs = len(total_instances)
-word_counts = dict()
-doc_occurences = dict()
+    # total_instances = positive_instances + negative_instances
+    num_docs = len( positive_instances ) + len( negative_instances )
 
-# for now just creating words by splitting on whitespace
-print( "\nPreprocessing lines" )
-for line_index in trange( len( total_instances ) ):
-    line = total_instances[ line_index ]
-#for line in total_instances:
-    tokens = preprocess_line(line)
-    curr_tokens = set()
-    for t in tokens:
-        if t in word_counts.keys():
-            word_counts[t] += 1
-            if t not in curr_tokens:
-                doc_occurences[t] += 1
-                curr_tokens.add(t)  # we do not count a document twice for words appearing multiple times in a sample
-        else:
-            word_counts[t] = 1
-            doc_occurences[t] = 1
+    return positive_instances, negative_instances, num_docs
 
-# sorting words by frequency, taking the top N (for now 300)
-top_counts = sorted(word_counts.items(), key=operator.itemgetter(1), reverse=True)[:NUM_WORDS]
+def create_count_matrix( input_list, verbose=True ):
+    """
+    Wrapper around scikit-learn's CountVectorizer class.
 
-# mix up the positive and negative training examples
-random.seed(SHUFFLE_SEED)
-random.shuffle(total_instances)
+    Arguments:
 
-# creating a list of processed training examples, with each word converted to its tf-idf score
-labelled_samples = list()
-print( "\nVectorizing" )
-for sample_index in trange( len( total_instances ) ):
-    sample = total_instances[sample_index]
-#for sample in total_instances:
-    word_vector = [0.0] * NUM_WORDS
-    tokens = preprocess_line(sample)
-    for token in tokens:
-        word_index = 0
-        for tup in top_counts:
-            if token == tup[0]:
-                tf_idf = tokens.count(token) * np.log(num_docs / doc_occurences[token])
-                word_vector[word_index] = tf_idf
-                break
-            else:
-               word_index += 1
+        input_list: list of strings.
 
-    # new_sample['tf_idf_word_vector'] = word_vector
-    label = 0.0
-    if sample in positive_instances:
-        label = 1.0
+    Returns:
 
-    # new_sample = np.array([np.array(word_vector), np.array(label)])
-    new_sample = [word_vector, label]
-    labelled_samples.append(new_sample)
-# print(labelled_samples[0])
+        count_feat_mat: feature count csr_matrix.
+        
+        count_vectorizer: vectorizer object, see https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html#sklearn.feature_extraction.text.CountVectorizer
 
-with open('train_tfidf.txt', 'w', encoding="utf8") as f:
-    csvwriter = csv.writer(f)
-    csvwriter.writerows(labelled_samples)
+    """
+    if verbose:
+        print(f"launching create_count_matrix")
 
+    count_vectorizer = CountVectorizer(
+        input='content',
+        encoding='utf-8',
+        strip_accents=None,
+        lowercase=True, 
+        # preprocessor=<preprocessor>,
+        # tokenizer=<tokenizer>,
+        stop_words=None, # or 'english' or list
+        # token_pattern
+        # ngram_range
+        analyzer="word",
+        max_df=1.0,
+        min_df=1,
+        max_features=None, # could be int
+        # vocabulary: a mapping object, could be useful to map term<->index in output matrix
+        binary=False,
+        # dtype
+    )
+
+    count_feat_mat = count_vectorizer.fit_transform( input_list )
+    if verbose:
+        print(f"finished create_count_matrix")
+        
+    return count_feat_mat, count_vectorizer
+
+def create_tfidf_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
+    """
+    Wrapper around scikit-learn's TfidfVectorizer class.
+
+    Arguments:
+
+        input_list: list of strings.
+
+        vocabulary_kwarg:   optional dictionary argument to match the token<->column index mapping
+                            of the output matrix to a specific mapping.
+
+    Returns:
+
+        tfidf_feat_mat: tf-idf csr_matrix.
+        
+        tfidf_vectorizer: vectorizer object, see https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html
+
+    """
+    if verbose:
+        print(f"launching create_tfidf_matrix")
+        
+    tfidf_vectorizer = TfidfVectorizer(
+        input='content',
+        encoding='utf-8',
+        strip_accents=None,
+        lowercase=True, 
+        # preprocessor=<preprocessor>,
+        # tokenizer=<tokenizer>,
+        analyzer="word",
+        stop_words=None, # or 'english' or list
+        # token_pattern
+        # ngram_range
+        max_df=1.0,
+        min_df=1,
+        max_features=None, # could be int
+        vocabulary=vocabulary_kwarg, # a mapping object, could be useful to map term<->index in output matrix
+        binary=False,
+        # dtype
+        # norm: 'l1', 'l2', or None
+        use_idf=True,
+        smooth_idf=True,
+        sublinear_tf=False
+    )
+
+    tfidf_feat_mat = tfidf_vectorizer.fit_transform( input_list )
+    if verbose:
+        print(f"finished create_tfidf_matrix")
+        
+    return tfidf_feat_mat, tfidf_vectorizer
+
+def main():
+
+    pos_instances_list, neg_instances_list, num_docs = fetch_instances(
+        os.path.join( 'train', 'pos' ),
+        os.path.join( 'train', 'neg' )
+    )
+
+    training_class_labels = np.array( [1]*len( pos_instances_list ) + [0]*len( neg_instances_list ) )# pos = 1, neg = 0
+
+    training_count_feat_mat, training_count_vectorizer = create_count_matrix( pos_instances_list+neg_instances_list )
+    token_to_col_index_dict = training_count_vectorizer.vocabulary_ 
+
+    training_tfidf_feat_mat, training_tfidf_vectorizer = create_tfidf_matrix( pos_instances_list+neg_instances_list, vocabulary_kwarg=token_to_col_index_dict )
+
+    print("pickling")
+    with open( 'training_count_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
+        pickle.dump( ( training_count_feat_mat, training_class_labels, training_count_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
+    
+    with open( 'training_tfidf_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
+        pickle.dump( ( training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
+    
+    print(f"finished")
+
+if __name__ == '__main__':
+    main()
