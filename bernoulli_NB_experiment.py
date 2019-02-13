@@ -1,36 +1,44 @@
-import numpy as np 
+import csv, json, pickle
+import numpy as np
+
 from math import log, e, inf
-import csv, json
 from sklearn.naive_bayes import BernoulliNB
 from bernoulli_NB import homemade_BernoulliNB
-from pipelines import k_fold
+from pipelines import strat_k_fold
 
-def loader():
-    features, labels = [],[]
-    with open("train_tfidf.txt", 'r', encoding="utf8", newline='\n') as data_file:
-        csv_reader = csv.reader(data_file, delimiter=',')
-        for row in csv_reader:
-            try:
-                features.append(np.array(json.loads(row[0])))
-                labels.append(np.array(json.loads(row[1])))
-            except IndexError:
-                print( row )
+def loader( pickled_file=False ):
 
-    X = np.array(features)
-    y = np.array(labels)
+    if pickled_file:
+        with open( 'training_tfidf_feat_mat_and_vectorizer.pickle', 'rb' ) as handle:
+            matrix, labels, vectorizer = pickle.load( handle )
+        return matrix, labels, vectorizer
 
-    print('done')
-    print( X.shape )
-    print( y.shape )
+    else:
+        features, labels = [],[]
+        with open( "train_tfidf.txt", 'r', encoding="utf8", newline='\n') as data_file:
+            csv_reader = csv.reader(data_file, delimiter=',')
+            for row in csv_reader:
+                try:
+                    features.append(np.array(json.loads(row[0])))
+                    labels.append(np.array(json.loads(row[1])))
+                except IndexError:
+                    print( row )
 
-    return X,y
+        X = np.array(features)
+        y = np.array(labels)
+
+        print('done')
+        print( X.shape )
+        print( y.shape )
+
+        return X,y
 
 def run_experiment( X_float, y_float ):
 
     X = ( X_float > 0 ).astype( int )
     y = ( y_float > 0 ).astype( int )
     
-    splits = k_fold(X, y, k=5) 
+    splits = strat_k_fold(X, y, k=5) 
     num_sets = len(splits[0])
     accuracies = []
     sanity_accuracies = []
@@ -72,7 +80,7 @@ def run_experiment( X_float, y_float ):
     print(f"Total sanity accuracy: {np.average(sanity_accuracies)}")
 
 def main():
-    X, y = loader()
+    X, y, vectorizer = loader( pickled_file=True )
     run_experiment( X, y )
 
 if __name__ == '__main__':
