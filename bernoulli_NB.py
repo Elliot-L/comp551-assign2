@@ -2,7 +2,8 @@ import numpy as np
 from math import log, e, inf
 from sklearn.naive_bayes import BernoulliNB
 from collections import Counter
-
+from scipy.sparse import csr_matrix
+from tqdm import trange
 """
 @SC for shame/blame
 """
@@ -19,7 +20,7 @@ class homemade_BernoulliNB():
         self.learned_logprob_feature_given_class = None 
         # should there be a "predictions" attribute?
     
-    def fit( self, binary_feature_array: np.ndarray, binary_class_vec: np.ndarray, laplace_smoothing=True ):
+    def fit( self, binary_feature_array: np.ndarray, binary_class_vec: np.ndarray, laplace_smoothing=True, verbose=True ):
         """
         Computes the MLEs P(feature_i == 1 | target == 1) and the class probabilities in a 2-class (binary classification) context. 
 
@@ -30,6 +31,8 @@ class homemade_BernoulliNB():
             binary_class_vec: | instances |-sized binary numpy vector.
 
             laplace_smoothing: boolean indicating whether to use add-1-smoothing or not.
+
+            verbose: boolean indicator of verbosity.
 
         Returns:
 
@@ -44,6 +47,12 @@ class homemade_BernoulliNB():
         """
 
         # some sanity checks
+        if isinstance( binary_feature_array, csr_matrix ): 
+            # might be faster to do binary_feature_array = binary_feature_array.toarray()
+            temp = binary_feature_array.toarray()
+            del binary_feature_array
+            binary_feature_array = temp
+
         if binary_feature_array.dtype != 'bool':
             binary_feature_array = binary_feature_array.astype( bool )
         
@@ -66,10 +75,13 @@ class homemade_BernoulliNB():
         ## used for P( y=0 | x ), swaps Trues -> Falses
         inverted_binary_class_vec = np.invert( binary_class_vec ) 
         
-        for feat_i in range( binary_feature_array.shape[1] ):
+        if verbose:
+            print("starting the fitting/learning process")
+        for feat_i in trange( binary_feature_array.shape[1] ):
             # np.logical_and( np.array( [ True, True, False, False ] ), 
             #                 np.array( [ True, False, True, False ] ) )
             # yields True False False False
+
             prob_feat_i_cond_1[ feat_i ] =  np.sum( 
                                                 np.logical_and( binary_feature_array[:,feat_i], binary_class_vec ) 
                                             )
@@ -90,13 +102,15 @@ class homemade_BernoulliNB():
         self.class_log_probs[0] = log( count_target0 / len( binary_class_vec ) )
         self.class_log_probs[1] = log( count_target1 / len( binary_class_vec ) )
 
-    def predict( self, test_instances: np.ndarray ):
+    def predict( self, test_instances: np.ndarray, verbose=True ):
         """
         Returns predicted class for test_instance using MLE/MAP parameters and class probabilities.
 
         Arguments:
 
             test_instances: | testing instances | x | features |-sized numpy array.
+
+            verbose: boolean indicator of verbosity.
         
         Returns:
 
@@ -105,11 +119,22 @@ class homemade_BernoulliNB():
         """
         # Note/Disclaimer: 'test_instances' and 'test_instance' could also have been named 'validation_instances' and 'validation_instance'
 
+        # sanity checks
+        if isinstance( test_instances, csr_matrix ): 
+            # might be faster to do binary_feature_array = binary_feature_array.toarray()
+            temp = test_instances.toarray()
+            del test_instances
+            test_instances = temp
+
         # dummy initializations
         class_preds, ml_prob = np.array( [None]*test_instances.shape[0] ), np.array( [-inf]*test_instances.shape[0] )
 
         # loop over instances 
-        for test_instance_index, test_instance in enumerate( test_instances ):
+        if verbose:
+            print("starting to make predictions")
+        for test_instance_index in trange( test_instances.shape[0] ):
+            test_instance = test_instances[ test_instance_index, : ]
+        # for test_instance_index, test_instance in enumerate( test_instances ):
             # iterate over every class, keeping track of which class has the highest probability
             for row_index, row_class_logprobs in enumerate( self.learned_logprob_feature_given_class ):
 
