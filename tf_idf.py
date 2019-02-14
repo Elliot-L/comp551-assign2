@@ -4,9 +4,10 @@ import numpy as np
 
 from scipy.sparse import csr_matrix
 from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import WordPunctTokenizer, punkt, sent_tokenize
 from tqdm import trange
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-
+nltk.download('punkt')
 
 NUM_WORDS = 252192 # 300
 SHUFFLE_SEED = 4
@@ -24,12 +25,43 @@ def has_some_alphanumeric_characters( line ):
         boolean True/False
         
     """
-    if re.search('[a-zA-Z]', line):
+    # to handle misshappen ellipses:
+    formatted_line = re.sub( r'\...', r'…', line )
+    if re.search('[a-zA-Z!?…]', line):
         return True
     else:
         return False
 
-def word_tokenize( line: str ):
+def sentence_tokenize( text: str, ntop=0, reverse=False ):
+    """
+    Wrapper around NLTK's sent_tokenize English sentence tokenizer.
+
+    Arguments:
+
+        text: text to tokenize into sentences. 
+
+        ntop: specifies how many sentences the function will return.
+
+        reverse: boolean indicator of whether the sentences should be returned in their original or reverse order.
+
+    Returns:
+
+        The ntop first/last sentences in the input text.
+
+    """
+    sentences = sent_tokenize( text )
+    if reverse:
+        if ntop > 0: 
+            return list( reversed( sentences ) )[:ntop]
+        else:
+            return sentences[::-1]
+    else:
+        if ntop > 0:
+            return sentences[:ntop]
+        else:
+            return sentences
+
+def word_tokenize( line: str, method='homebrew' ):
     """
     Tokenizes input string into words (where each word has >= 1 letter).
     
@@ -37,14 +69,28 @@ def word_tokenize( line: str ):
         
         line: string to tokenize into words.
             
+        method: string indicating which tokenizing method to use (can be 'nltk.word_tokenize', 'WordPunctTokenizer', or 'homebrew').
+
     Returns: 
         
         a list of all tokens with >= 1 alphabetic character.
         
     """
-    return [ word for word in nltk.word_tokenize( line ) if has_some_alphanumeric_characters( word ) ]
+    assert method in ['nltk.word_tokenize', 'WordPunctTokenizer', 'homebrew']
+    
+    if method == 'WordPunctTokenizer':
+        return WordPunctTokenizer().tokenize( line ) 
 
-def decontract( line: str ):
+    elif method == 'nltk.word_tokenize':
+        return [ word for word in nltk.word_tokenize( line ) if has_some_alphanumeric_characters( word ) ]
+
+    elif method == 'homebrew':
+        for ch in ['\?','!','…']:
+            formd_line = re.sub( ch, f" {ch}", line ) # making ?s, !s, and …s 'word tokens'
+            line = formd_line
+        return [ word for word in line.split(' ') if has_some_alphanumeric_characters( word ) ]
+
+def decontract( line: str, contraction_decontraction_list=[( r"n't", r" not" ), ( r"'m", r" am" ), (r"'re", r" are"), (r"'ve", r" have"), (r"'d", r" had"), (r"'ll", r" will") ] ):
     """
     Re wrapper to expand contractions (e.g. 'would_n't_' -> 'would not').
 
@@ -52,14 +98,20 @@ def decontract( line: str ):
 
         line: string to decontract.
 
+        contraction_decontraction_list: list of tuples where tuple[0] == contraction, tuple[1] == decontraction. since "'s" can be decontracted to "is" or "has", it is excluded by default.
     Returns:
 
         input string without contractions.
 
     """
-    re.sub( r"n't", r" not ", line )
+    print( "Don't use me, contractions are hard.\nExiting now." )
+    raise SystemExit
+    for ( contract, decontract ) in contraction_decontraction_list:
+        dec_line = re.sub( contract, decontract, line )
+        line = dec_line
+    return line
 
-def lemmatize( word: str, lemmatizer=None  ):
+def lemmatize( word: str, lemmatizer=None ):
     """
     nltk.WordNetLemmatizer() wrapper to lemmatize a word.
 
@@ -134,7 +186,7 @@ def create_count_matrix( input_list, verbose=True ):
         # tokenizer=<tokenizer>,
         stop_words=None, # or 'english' or list
         # token_pattern
-        # ngram_range
+        ngram_range=(1,1),
         analyzer="word",
         max_df=1.0,
         min_df=1,
@@ -181,7 +233,7 @@ def create_tfidf_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
         analyzer="word",
         stop_words=None, # or 'english' or list
         # token_pattern
-        # ngram_range
+        ngram_range=(1,1),
         max_df=1.0,
         min_df=1,
         max_features=None, # could be int
@@ -215,10 +267,10 @@ def main():
     training_tfidf_feat_mat, training_tfidf_vectorizer = create_tfidf_matrix( pos_instances_list+neg_instances_list, vocabulary_kwarg=token_to_col_index_dict )
 
     print("pickling")
-    with open( 'training_count_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
+    with open( 'bigram_training_count_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
         pickle.dump( ( training_count_feat_mat, training_class_labels, training_count_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
-    with open( 'training_tfidf_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
+    with open( 'bigram_training_tfidf_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
         pickle.dump( ( training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
     print(f"finished")
