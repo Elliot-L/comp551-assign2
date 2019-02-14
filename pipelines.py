@@ -4,6 +4,7 @@ from sklearn.model_selection import LeaveOneOut
 import numpy as np
 import matplotlib.pyplot as plt 
 from more_itertools import consecutive_groups
+from scipy.sparse import csr_matrix, hstack
 
 def kfold_plotter( training_indices, testing_indices ):
 
@@ -73,6 +74,75 @@ def strat_k_fold(X,y, k=5, plot=False):
 
     return X_train_list, X_test_list, y_train_list, y_test_list
 
+def add_n_most_common_words_features( features_array: np.ndarray, new_feature_array: np.ndarray, sparse=False ):
+    """
+    S.C.
+    Compiles a word frequency array for the instances in features_array and the n most common words 
+    and appends it to the features_array provided.
+
+    Arguments:
+
+        features_array: the | instances | x | features | numpy array to which the word frequency array will be appended.
+
+        new_feature_array: the | instances | x | new features | numpy array to append to the features_array.
+
+        sparse: boolean indicator of whether the input and output arrays are sparse matrices.
+    
+    Returns:
+
+        [ [features_array] [topn_word_frequency_array] ]
+    """
+        
+    assert features_array.shape[0] == new_feature_array.shape[0]
+
+    if sparse:
+        return hstack( [features_array, new_feature_array] )
+    else:
+        return np.hstack( ( features_array, new_feature_array ) )
+    
+def add_transformed_feature( features_array: np.ndarray, feature_column_index: int, transform, sparse=False, *args, **kwargs ):
+    """
+    S.C.
+    Function to apply "transform" to the feature_column_index-th feature column of features_array and append its
+    resulting vector to the original features_array.
+
+    Example of use: 
+    
+    1) To append a feature which is the log of the 2nd column in features_array:
+        transformation_funct = lambda vector:np.log( vector )
+        updated_feature_array = add_transformed_feature( current_feature_array, 1, transformation_funct ) 
+
+    2) To append a feature which is a product of the 2nd and 4th feature vectors ( additional transformations can be chained in here ):
+        transformation_funct = lambda column_index_1, column_index_2 : np.multiply( column_index_1, column_index_2 )
+        updated_feature_array = add_transformed_feature( current_feature_array, 2, transformation_funct, column_index_2=current_feature_array[ :, 3] )
+
+    Arguments:
+
+        features_array: np.ndarray of the original feature array. 
+
+        feature_column_index: integer index of the feature on which "transform" will be applied. 
+
+        transform: a lambda function version of the transform to apply ( needs to be applicable to numpy type objects ). 
+
+        sparse: boolean indicator of whether the input and output arrays are sparse matrices. 
+
+    Returns:
+
+        [ [ features_array ] [ transformed feature ] ] representation of updated features_array.
+
+    """
+    assert feature_column_index < features_array.shape[1]
+    
+    if not sparse: 
+        transformed_feature = transform( features_array[ :, feature_column_index ], *args, **kwargs )
+        transformed_feature = np.reshape( transformed_feature, ( len( transformed_feature ) , 1 ) )
+        return np.hstack( ( features_array, transformed_feature ) )
+    else:
+        dense_features_array = features_array.toarray()
+        transformed_feature = transform( dense_features_array[ :, feature_column_index ], *args, **kwargs )
+        transformed_feature = np.reshape( transformed_feature, ( len( transformed_feature ) , 1 ) )
+        transformed_features_array = np.hsatck( ( features_array, transformed_feature ) )
+        return csr_matrix( transformed_features_array )
 
 def leave_one_out(X,y):
     X_train_list = []
