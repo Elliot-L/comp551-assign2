@@ -9,7 +9,7 @@ from pipelines import strat_k_fold
 def loader( pickled_file=False ):
 
     if pickled_file:
-        with open( 'training_tfidf_feat_mat_and_vectorizer.pickle', 'rb' ) as handle:
+        with open( 'training_count_feat_mat_and_vectorizer.pickle', 'rb' ) as handle:
             matrix, labels, vectorizer = pickle.load( handle )
         return matrix, labels, vectorizer
 
