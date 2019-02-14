@@ -6,16 +6,16 @@ from sklearn.naive_bayes import BernoulliNB
 from bernoulli_NB import homemade_BernoulliNB
 from pipelines import strat_k_fold
 
-def loader( pickled_file=False ):
+def loader( filename, pickled_file=False ):
 
     if pickled_file:
-        with open( 'training_count_feat_mat_and_vectorizer.pickle', 'rb' ) as handle:
+        with open( filename, 'rb' ) as handle:
             matrix, labels, vectorizer = pickle.load( handle )
         return matrix, labels, vectorizer
 
     else:
         features, labels = [],[]
-        with open( "train_tfidf.txt", 'r', encoding="utf8", newline='\n') as data_file:
+        with open( filename, 'r', encoding="utf8", newline='\n') as data_file:
             csv_reader = csv.reader(data_file, delimiter=',')
             for row in csv_reader:
                 try:
@@ -80,7 +80,7 @@ def run_experiment( X_float, y_float ):
     print(f"Total sanity accuracy: {np.average(sanity_accuracies)}")
 
 def main():
-    X, y, vectorizer = loader( pickled_file=True )
+    X, y, vectorizer = loader( "bigram_training_count_feat_mat_and_vectorizer.pickle", pickled_file=True )
     run_experiment( X, y )
 
 if __name__ == '__main__':
