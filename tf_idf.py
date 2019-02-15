@@ -12,7 +12,7 @@ SHUFFLE_SEED = 4
 
 # Analyser function for the count vectorizer to store ? and !
 
-def words_and_char_bigrams(text):
+def words_and_char(text):
     words = re.findall(r'\w{1,}|!|\?|[.]{2,}', text)
     for w in words:
         yield w
@@ -130,7 +130,7 @@ def create_count_matrix(input_list, verbose=True):
         stop_words=None,  # or 'english' or list
         # token_pattern
         # ngram_range
-        analyzer=words_and_char_bigrams,
+        analyzer=words_and_char,
         max_df=1.0,
         min_df=1,
         max_features=None,  # could be int
@@ -168,7 +168,7 @@ def create_tfidf_matrix(input_list, vocabulary_kwarg=None, verbose=True):
         lowercase=True,
         # preprocessor=<preprocessor>,
         # tokenizer=<tokenizer>,
-        analyzer="word",
+        analyzer=words_and_char,
         stop_words=None,  # or 'english' or list
         # token_pattern
         # ngram_range
