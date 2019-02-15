@@ -61,7 +61,7 @@ def sentence_tokenize( text: str, ntop=0, reverse=False ):
         else:
             return sentences
 
-def word_tokenize( line: str, method='homebrew' ):
+def word_tokenize( line: str, method='homebrew', verbose=False ):
     """
     Tokenizes input string into words (where each word has >= 1 letter).
     
@@ -70,6 +70,8 @@ def word_tokenize( line: str, method='homebrew' ):
         line: string to tokenize into words.
             
         method: string indicating which tokenizing method to use (can be 'nltk.word_tokenize', 'WordPunctTokenizer', or 'homebrew').
+
+        verbose: boolean indicator of verbosity. 
 
     Returns: 
         
@@ -85,12 +87,21 @@ def word_tokenize( line: str, method='homebrew' ):
         return [ word for word in nltk.word_tokenize( line ) if has_some_alphanumeric_characters( word ) ]
 
     elif method == 'homebrew':
+        
+        if verbose:
+            print( f"{type( line )} {line}")
+        formatted_line = re.sub( r'\.\.\.', r'…', line )
+        
+        if verbose: 
+            print( f"became {formatted_line}")
+        
         for ch in ['\?','!','…']:
-            formd_line = re.sub( ch, f" {ch}", line ) # making ?s, !s, and …s 'word tokens'
-            line = formd_line
-        return [ word for word in line.split(' ') if has_some_alphanumeric_characters( word ) ]
+            formd_line = re.sub( ch, ' {}'.format( ch.strip( '\\' ) ), formatted_line ) # making ?s, !s, and …s 'word tokens'
+            formatted_line = formd_line
+        return [ word for word in formatted_line.split(' ') if has_some_alphanumeric_characters( word ) ]
 
-def decontract( line: str, contraction_decontraction_list=[( r"n't", r" not" ), ( r"'m", r" am" ), (r"'re", r" are"), (r"'ve", r" have"), (r"'d", r" had"), (r"'ll", r" will") ] ):
+def decontract( line: str, 
+    contraction_decontraction_list=[( r"n't", r" not" ), ( r"'m", r" am" ), (r"'re", r" are"), (r"'ve", r" have"), (r"'d", r" had"), (r"'ll", r" will") ] ):
     """
     Re wrapper to expand contractions (e.g. 'would_n't_' -> 'would not').
 
@@ -159,6 +170,21 @@ def fetch_instances( path_to_pos, path_to_neg, verbose=True ):
 
     return positive_instances, negative_instances, num_docs
 
+class CustomTokenizer():
+    """
+    Wrapper class around the word_tokenize function.
+    """
+    def __init__( self, tokenizing_funct=word_tokenize ):
+        self.funct = tokenizing_funct
+
+    def __call__( self, doc ):
+        #print( f"calling {self.funct}, {self.funct.__name__}")
+        #print( doc )
+        #print( "became" )
+        res = self.funct( doc )
+        #print( res )
+        return res
+
 def create_count_matrix( input_list, verbose=True ):
     """
     Wrapper around scikit-learn's CountVectorizer class.
@@ -184,8 +210,10 @@ def create_count_matrix( input_list, verbose=True ):
         lowercase=True, 
         # preprocessor=<preprocessor>,
         # tokenizer=<tokenizer>,
+        tokenizer=CustomTokenizer(),
         stop_words=None, # or 'english' or list
         # token_pattern
+        token_pattern=None,
         ngram_range=(1,1),
         analyzer="word",
         max_df=1.0,
@@ -230,9 +258,11 @@ def create_tfidf_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
         lowercase=True, 
         # preprocessor=<preprocessor>,
         # tokenizer=<tokenizer>,
+        tokenizer=CustomTokenizer(),
         analyzer="word",
         stop_words=None, # or 'english' or list
         # token_pattern
+        token_pattern=None,
         ngram_range=(1,1),
         max_df=1.0,
         min_df=1,
@@ -252,6 +282,8 @@ def create_tfidf_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
         
     return tfidf_feat_mat, tfidf_vectorizer
 
+
+
 def main():
 
     pos_instances_list, neg_instances_list, num_docs = fetch_instances(
@@ -267,10 +299,10 @@ def main():
     training_tfidf_feat_mat, training_tfidf_vectorizer = create_tfidf_matrix( pos_instances_list+neg_instances_list, vocabulary_kwarg=token_to_col_index_dict )
 
     print("pickling")
-    with open( 'bigram_training_count_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
+    with open( 'unigram_homebrew_tokenized_count_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
         pickle.dump( ( training_count_feat_mat, training_class_labels, training_count_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
-    with open( 'bigram_training_tfidf_feat_mat_and_vectorizer.pickle', 'wb' ) as handle:
+    with open( 'unigram_homebrew_tokenized_tfidf_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
         pickle.dump( ( training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
     print(f"finished")
