@@ -5,6 +5,7 @@ from math import log, e, inf
 from sklearn.naive_bayes import BernoulliNB
 from bernoulli_NB import homemade_BernoulliNB
 from pipelines import strat_k_fold
+from tf_idf import * 
 
 def loader( filename, pickled_file=False ):
 
@@ -35,7 +36,7 @@ def loader( filename, pickled_file=False ):
 
 def run_experiment( X_float, y_float ):
 
-    X = ( X_float > 0 ).astype( int )
+    X = X_float.astype( bool )
     y = ( y_float > 0 ).astype( int )
     
     splits = strat_k_fold(X, y, k=5) 
@@ -51,11 +52,12 @@ def run_experiment( X_float, y_float ):
         # homemade_BernoulliNB
         bernie = homemade_BernoulliNB()
         bernie.fit( train_x, train_y )
-        predictions = bernie.predict( valid_x )
-
         # sanity checks
         sanity_check = BernoulliNB()
         sanity_check.fit( train_x, train_y )
+
+        predictions = bernie.predict( valid_x )
+
         sanity_preds = sanity_check.predict( valid_x )
 
         # compute accuracy
@@ -80,7 +82,9 @@ def run_experiment( X_float, y_float ):
     print(f"Total sanity accuracy: {np.average(sanity_accuracies)}")
 
 def main():
-    X, y, vectorizer = loader( "bigram_training_count_feat_mat_and_vectorizer.pickle", pickled_file=True )
+    X, y, vectorizer = loader( "unigram_homebrew_tokenized_tfidf_feat_mat_labels_and_vectorizer.pickle", pickled_file=True )
+    input( type( X ) )
+    input( type( y ) )
     run_experiment( X, y )
 
 if __name__ == '__main__':
