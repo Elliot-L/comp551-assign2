@@ -18,7 +18,7 @@ class homemade_BernoulliNB():
         self.class_log_probs = dict() 
         # | classes | x | features | array whose [r,c] entry represents the log( P( feature c | class r ) )
         self.learned_logprob_feature_given_class = None 
-        # should there be a "predictions" attribute?
+        
     
     def fit( self, binary_feature_array, binary_class_vec: np.ndarray, laplace_smoothing=True, verbose=True ):
         """
@@ -143,7 +143,7 @@ class homemade_BernoulliNB():
 
         # sanity checks
         if isinstance( test_instances, csr_matrix ): 
-            bool_feature_array = test_instances.astype( bool ).astype( int ) # ensures a <float > 0 > -> 1 mapping
+            bool_feature_array = test_instances.astype( bool ).astype( int ) # ensures a < float > 0 > -> 1 mapping
             del test_instances # for memory footprint
             test_instances = bool_feature_array
 
@@ -171,12 +171,21 @@ class homemade_BernoulliNB():
 
                 probs = np.vstack( ( not_row_class_probs, row_class_logprobs ) )
 
+                input( probs )
+                input( test_instance )
+
                 class_prob = self.class_log_probs[ row_index ] + sum( [ probs[ test_instance_feature, test_instance_index ] for test_instance_index, test_instance_feature in enumerate( test_instance ) ] )
+                
+                input( class_prob )
+                input( self.class_log_probs[ row_index ] + np.dot( test_instance, row_class_logprobs ) + np.dot( test_instance, not_row_class_probs ) )
+
+                assert class_prob == ( self.class_log_probs[ row_index ] + np.dot( test_instance, row_class_logprobs ) + np.dot( test_instance, not_row_class_probs ) )
                 
                 if class_prob >= ml_prob[ test_instance_index ]:
                     class_preds[ test_instance_index ], ml_prob[ test_instance_index ] = row_index, class_prob 
-        
-        return class_preds
+
+        return class_preds.astype( int )
+
 
 def binary_bernoulli_NB( binary_feature_array: np.ndarray, binary_class_vec: np.ndarray, laplace_smoothing=True ):
     """
@@ -272,7 +281,7 @@ if __name__ == '__main__':
 
     # random initialization of a training dataset
     classes =  np.random.randint( 0, 2, ( 100 ) )
-    features = csr_matrix( np.random.randint( 0, 2, ( 100, 30 ) ) )
+    features = csr_matrix( np.random.randint( 0, 2, ( 100, 10 ) ) )
 
     # using the functions individually, res == learned probabilities from training
     # logp0, logp1, res =  binary_bernoulli_NB( features, classes) 
@@ -286,18 +295,19 @@ if __name__ == '__main__':
     homemade_sanity_check.fit( features, classes )
     
     # generating 1,000,000 random test datasets
-    for i in range( 100000 ):
+    for i in range( 100 ):
         print( i )
-        tests = np.random.randint( 0, 2, ( 10, 30 ) )
+        tests = np.random.randint( 0, 2, ( 10, 10 ) )
         
         sanity_preds = sanity_check.predict( tests )
-        homemade_sanity_preds = homemade_sanity_check.predict( tests )
+        homemade_sanity_preds = homemade_sanity_check.quick_predict( tests )
         
         '''my_preds = []
         for t in tests:
             my_preds.append( predict( res, [ logp0, logp1 ], t ) )
         '''
-        
+        print( homemade_sanity_preds )
+        print( sanity_preds )
         #assert ( np.array_equal( np.array( my_preds ), sanity_preds ) )
         
         assert( np.array_equal( sanity_preds, homemade_sanity_preds ) )
