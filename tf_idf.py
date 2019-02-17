@@ -2,7 +2,7 @@ import os, operator, random, json, csv, re, nltk, pickle
 
 import numpy as np
 
-from scipy.sparse import csr_matrix
+from scipy.sparse import *
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import WordPunctTokenizer, punkt, sent_tokenize
 from tqdm import trange
@@ -128,7 +128,7 @@ def word_tokenize( line: str, method='homebrew', verbose=False ):
         return [ word for word in formatted_line.split(' ') if has_some_alphanumeric_characters( word ) ]
 
 def decontract( line: str, 
-    contraction_decontraction_list=[( r"n't", r" not" ), ( r"'m", r" am" ), (r"'re", r" are"), (r"'ve", r" have"), (r"'d", r" had"), (r"'ll", r" will") ] ):
+    contraction_decontraction_list=[( r"n't", r" not" ), ( r"'m", r" am" ), (r"'re", r" are"), (r"'ve", r" have"), (r"'ll", r" will") ] ):
     """
     Re wrapper to expand contractions (e.g. 'would_n't_' -> 'would not').
 
@@ -136,14 +136,15 @@ def decontract( line: str,
 
         line: string to decontract.
 
-        contraction_decontraction_list: list of tuples where tuple[0] == contraction, tuple[1] == decontraction. since "'s" can be decontracted to "is" or "has", it is excluded by default.
+        contraction_decontraction_list: list of tuples where tuple[0] == contraction, tuple[1] == decontraction. 
+        
+        DISCLAIMER: since "'s" can be decontracted to "is" or "has", it is excluded by default. same goes for "'d" as it can be decontracted to "had" or "would"
     Returns:
 
         input string without contractions.
 
     """
-    print( "Don't use me, contractions are hard.\nExiting now." )
-    raise SystemExit
+
     for ( contract, decontract ) in contraction_decontraction_list:
         dec_line = re.sub( contract, decontract, line )
         line = dec_line
@@ -194,7 +195,9 @@ def fetch_instances( path_to_pos, path_to_neg, verbose=True ):
 
     # total_instances = positive_instances + negative_instances
     num_docs = len( positive_instances ) + len( negative_instances )
-
+    
+    positive_instances.sort()
+    negative_instances.sort()
     return positive_instances, negative_instances, num_docs
 
 class CustomTokenizer():
@@ -241,7 +244,7 @@ def create_count_matrix( input_list, verbose=True ):
         stop_words=None, # or 'english' or list
         # token_pattern
         token_pattern=None,
-        ngram_range=(1,1),
+        ngram_range=(1,3),
         analyzer="word",
         max_df=1.0,
         min_df=1,
@@ -290,7 +293,7 @@ def create_tfidf_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
         stop_words=None, # or 'english' or list
         # token_pattern
         token_pattern=None,
-        ngram_range=(1,1),
+        ngram_range=(1,3),
         max_df=1.0,
         min_df=1,
         max_features=None, # could be int
@@ -318,29 +321,99 @@ def main():
         os.path.join( 'train', 'neg' )
     )
 
-    pos_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in pos_instances_list ]
-    pos_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in pos_instances_list ]
-    pos_instances_list = [ first+' '+last for ( first, last ) in zip( pos_instances_firstline, pos_instances_lastline) if first != last ]
+    '''
+    This was to select the first and last sentences only, it didn't help.
+    #pos_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in pos_instances_list ]
+    #pos_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in pos_instances_list ]
+    #pos_instances_list = [ first+' '+last for ( first, last ) in zip( pos_instances_firstline, pos_instances_lastline) if first != last ]
 
-    neg_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in neg_instances_list ]
-    neg_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in neg_instances_list ]
-    neg_instances_list = [ first+' '+last for ( first, last ) in zip( neg_instances_firstline, neg_instances_lastline ) if first != last ]
+    #neg_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in neg_instances_list ]
+    #neg_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in neg_instances_list ]
+    #neg_instances_list = [ first+' '+last for ( first, last ) in zip( neg_instances_firstline, neg_instances_lastline ) if first != last ]
+    '''
 
-    training_class_labels = np.array( [1]*len( pos_instances_list ) + [0]*len( neg_instances_list ) )# pos = 1, neg = 0
+    word_count = np.array(
+            [ len( word_tokenize( instance ) ) for instance in pos_instances_list+neg_instances_list ]
+        )
+    
+    sentences_count = np.array( 
+            [ len( sentence_tokenize( instance, ntop=0 ) ) for instance in pos_instances_list+neg_instances_list ]
+         )
+    
+    avg_word_per_sentences = word_count / sentences_count
+
+    word_count = csr_matrix( word_count ).transpose()
+    sentences_count = csr_matrix( sentences_count ).transpose()
+    avg_word_per_sentences = csr_matrix( avg_word_per_sentences ).transpose()
+
+    training_class_labels = np.array( [1]*len( pos_instances_list ) + [0]*len( neg_instances_list ) ) # pos = 1, neg = 0
 
     training_count_feat_mat, training_count_vectorizer = create_count_matrix( pos_instances_list+neg_instances_list )
     token_to_col_index_dict = training_count_vectorizer.vocabulary_ 
 
     training_tfidf_feat_mat, training_tfidf_vectorizer = create_tfidf_matrix( pos_instances_list+neg_instances_list, vocabulary_kwarg=token_to_col_index_dict )
 
+
     ### Add features here ###
+    training_count_feat_mat = csr_matrix(
+        hstack(
+            [ training_count_feat_mat, word_count, sentences_count, avg_word_per_sentences ]
+        )
+    )
+
+    training_tfidf_feat_mat = csr_matrix(
+        hstack(
+            [ training_tfidf_feat_mat, word_count, sentences_count, avg_word_per_sentences ]
+        )
+    )
+    # adding the number of words
+    '''
+    training_count_feat_mat = hstack( # takes the row-wise sum of training_count_feat_mat and adds the resulting column as the rightmost column of training_count_feat_mat
+        [ training_count_feat_mat, 
+        training_count_feat_mat.sum( axis=1 ) ] 
+    )
+
+    or just use 
+
+    word_count = csr_matrix(
+        np.array(
+            [ len( word_tokenize( instance ) ) for instance in pos_instances_list+neg_instances_list ]
+        )
+    )
+    '''
+    # adding the number of sentences
+    '''
+    sentences_count = csr_matrix(
+        np.array( 
+            [ len( sentence_tokenize( instance, ntop=0 ) ) for instance in pos_instances_list+neg_instances_list ]
+         )
+    )
+
+    training_count_feat_mat = hstack(
+        [ training_count_feat_mat,
+        sentences_count ]
+    )
+
+    avg_word_per_sentences = csr_matrix(
+        word_count.toarray() / sentences_count.toarray()
+    )
+    '''
+
 
     print("pickling")
-    with open( 'first_and_last_sentence_unigram_homebrew_tokenized_count_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
-        pickle.dump( ( training_count_feat_mat, training_class_labels, training_count_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
+
+    metadata={
+        "review":"entire",
+        "n-grams":"(1,2,3)",
+        "additional features":"word count, sentences count, avg word/sentence",
+        "tokenizer":"homebrew"
+    }
+
+    with open( 'entire_(1-3)_wc_sc_wps_homebrew_count_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
+        pickle.dump( ( training_count_feat_mat, training_class_labels, training_count_vectorizer, {"pos_instances_list":pos_instances_list, "neg_instances_list":neg_instances_list}, metadata ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
-    with open( 'first_and_last_sentence_unigram_homebrew_tokenized_tfidf_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
-        pickle.dump( ( training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
+    with open( 'entire_(1-3)_wc_sc_wps_homebrew_tfidf_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
+        pickle.dump( ( training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer, {"pos_instances_list":pos_instances_list, "neg_instances_list":neg_instances_list}, metadata ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
     print(f"finished")
 
