@@ -12,6 +12,33 @@ nltk.download('punkt')
 NUM_WORDS = 252192 # 300
 SHUFFLE_SEED = 4
 
+def loader( filename, pickled_file=False ):
+
+    if pickled_file:
+        with open( filename, 'rb' ) as handle:
+            matrix, labels, vectorizer = pickle.load( handle )
+        return matrix, labels, vectorizer
+
+    else:
+        features, labels = [],[]
+        with open( filename, 'r', encoding="utf8", newline='\n') as data_file:
+            csv_reader = csv.reader(data_file, delimiter=',')
+            for row in csv_reader:
+                try:
+                    features.append(np.array(json.loads(row[0])))
+                    labels.append(np.array(json.loads(row[1])))
+                except IndexError:
+                    print( row )
+
+        X = np.array(features)
+        y = np.array(labels)
+
+        print('done')
+        print( X.shape )
+        print( y.shape )
+
+        return X,y
+
 def has_some_alphanumeric_characters( line ):
     """
     Re wrapper returning True/False depending on whether the input line (string) contains at least one alphabetic character.
@@ -52,14 +79,14 @@ def sentence_tokenize( text: str, ntop=0, reverse=False ):
     sentences = sent_tokenize( text )
     if reverse:
         if ntop > 0: 
-            return list( reversed( sentences ) )[:ntop]
+            return ' '.join( list( reversed( sentences ) )[:ntop] )
         else:
-            return sentences[::-1]
+            return ' '.join( sentences[::-1] )
     else:
         if ntop > 0:
-            return sentences[:ntop]
+            return ' '.join( sentences[:ntop] )
         else:
-            return sentences
+            return ' '.join( sentences )
 
 def word_tokenize( line: str, method='homebrew', verbose=False ):
     """
@@ -291,6 +318,14 @@ def main():
         os.path.join( 'train', 'neg' )
     )
 
+    pos_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in pos_instances_list ]
+    pos_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in pos_instances_list ]
+    pos_instances_list = [ first+' '+last for ( first, last ) in zip( pos_instances_firstline, pos_instances_lastline) if first != last ]
+
+    neg_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in neg_instances_list ]
+    neg_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in neg_instances_list ]
+    neg_instances_list = [ first+' '+last for ( first, last ) in zip( neg_instances_firstline, neg_instances_lastline ) if first != last ]
+
     training_class_labels = np.array( [1]*len( pos_instances_list ) + [0]*len( neg_instances_list ) )# pos = 1, neg = 0
 
     training_count_feat_mat, training_count_vectorizer = create_count_matrix( pos_instances_list+neg_instances_list )
@@ -298,11 +333,13 @@ def main():
 
     training_tfidf_feat_mat, training_tfidf_vectorizer = create_tfidf_matrix( pos_instances_list+neg_instances_list, vocabulary_kwarg=token_to_col_index_dict )
 
+    ### Add features here ###
+
     print("pickling")
-    with open( 'unigram_homebrew_tokenized_count_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
+    with open( 'first_and_last_sentence_unigram_homebrew_tokenized_count_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
         pickle.dump( ( training_count_feat_mat, training_class_labels, training_count_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
-    with open( 'unigram_homebrew_tokenized_tfidf_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
+    with open( 'first_and_last_sentence_unigram_homebrew_tokenized_tfidf_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
         pickle.dump( ( training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer ), handle, protocol=pickle.HIGHEST_PROTOCOL )
     
     print(f"finished")
