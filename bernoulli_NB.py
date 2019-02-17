@@ -171,16 +171,8 @@ class homemade_BernoulliNB():
 
                 probs = np.vstack( ( not_row_class_probs, row_class_logprobs ) )
 
-                input( probs )
-                input( test_instance )
-
                 class_prob = self.class_log_probs[ row_index ] + sum( [ probs[ test_instance_feature, test_instance_index ] for test_instance_index, test_instance_feature in enumerate( test_instance ) ] )
-                
-                input( class_prob )
-                input( self.class_log_probs[ row_index ] + np.dot( test_instance, row_class_logprobs ) + np.dot( test_instance, not_row_class_probs ) )
-
-                assert class_prob == ( self.class_log_probs[ row_index ] + np.dot( test_instance, row_class_logprobs ) + np.dot( test_instance, not_row_class_probs ) )
-                
+                                
                 if class_prob >= ml_prob[ test_instance_index ]:
                     class_preds[ test_instance_index ], ml_prob[ test_instance_index ] = row_index, class_prob 
 
@@ -300,7 +292,7 @@ if __name__ == '__main__':
         tests = np.random.randint( 0, 2, ( 10, 10 ) )
         
         sanity_preds = sanity_check.predict( tests )
-        homemade_sanity_preds = homemade_sanity_check.quick_predict( tests )
+        homemade_sanity_preds = homemade_sanity_check.predict( tests )
         
         '''my_preds = []
         for t in tests:
