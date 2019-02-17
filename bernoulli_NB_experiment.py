@@ -7,32 +7,6 @@ from bernoulli_NB import homemade_BernoulliNB
 from pipelines import strat_k_fold
 from tf_idf import * 
 
-def loader( filename, pickled_file=False ):
-
-    if pickled_file:
-        with open( filename, 'rb' ) as handle:
-            matrix, labels, vectorizer = pickle.load( handle )
-        return matrix, labels, vectorizer
-
-    else:
-        features, labels = [],[]
-        with open( filename, 'r', encoding="utf8", newline='\n') as data_file:
-            csv_reader = csv.reader(data_file, delimiter=',')
-            for row in csv_reader:
-                try:
-                    features.append(np.array(json.loads(row[0])))
-                    labels.append(np.array(json.loads(row[1])))
-                except IndexError:
-                    print( row )
-
-        X = np.array(features)
-        y = np.array(labels)
-
-        print('done')
-        print( X.shape )
-        print( y.shape )
-
-        return X,y
 
 def run_experiment( X_float, y_float ):
 
@@ -57,7 +31,6 @@ def run_experiment( X_float, y_float ):
         sanity_check.fit( train_x, train_y )
 
         predictions = bernie.predict( valid_x )
-
         sanity_preds = sanity_check.predict( valid_x )
 
         # compute accuracy
@@ -83,8 +56,6 @@ def run_experiment( X_float, y_float ):
 
 def main():
     X, y, vectorizer = loader( "unigram_homebrew_tokenized_tfidf_feat_mat_labels_and_vectorizer.pickle", pickled_file=True )
-    input( type( X ) )
-    input( type( y ) )
     run_experiment( X, y )
 
 if __name__ == '__main__':
