@@ -110,10 +110,13 @@ def run_pipelines( verbose=True ):
         #gbclf_Pipeline 
     ]
 
-    X, y, vectorizer = loader( "unigram_homebrew_tokenized_count_feat_mat_labels_and_vectorizer.pickle", pickled_file=True )
-    X = X.astype( bool )
-    y = ( y > 0 ).astype( int )
-    
+    # X, y, vectorizer = loader( "unigram_homebrew_tokenized_count_feat_mat_labels_and_vectorizer.pickle", pickled_file=True )
+    with open( 'entire_(1-2)_wc_sc_wps_homebrew_tfidf_feat_mat_labels_and_vectorizer.pickle', 'rb' ) as handle:
+        try:
+            X, y, vectorizer, mapping, metadata = pickle.load( handle )
+        except ValueError:
+            X, y, vectorizer = pickle.load( handle )
+
     splits = strat_k_fold(X, y, k=5)
     num_sets = len(splits[0])
     for i in range(num_sets):
