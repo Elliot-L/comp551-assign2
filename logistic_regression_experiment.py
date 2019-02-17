@@ -1,21 +1,28 @@
 from sklearn.linear_model import LogisticRegression
-import csv
+import csv, pickle, json
 import numpy as np
-import json
-from pipelines import k_fold
+from pipelines import k_fold, strat_k_fold
+from tf_idf import CustomTokenizer, word_tokenize
 
-features = list()
+'''features = list()
 labels = list()
 with open("train_tfidf.txt", encoding='utf8', newline='\n') as data_file:
     csv_reader = csv.reader(data_file, delimiter=',')
     for row in csv_reader:
         features.append(np.array(json.loads(row[0])))
         labels.append(np.array(json.loads(row[1])))
-X = np.array(features)
-y = np.array(labels)
+'''
+with open( "first_and_last_sentence_unigram_homebrew_tokenized_tfidf_feat_mat_labels_and_vectorizer.pickle", "rb" ) as handle:
+    p = pickle.load( handle ) 
+
+features, labels = p[0], p[1]
+X = features
+y = labels
+#X = np.array(features)
+#y = np.array(labels)
 print('done')
 
-splits = k_fold(X, y, k=5)
+splits = strat_k_fold(X, y, k=5)
 num_sets = len(splits[0])
 accuracies = list()
 for i in range(num_sets):
