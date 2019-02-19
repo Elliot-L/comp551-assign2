@@ -2,120 +2,257 @@ import os, operator, random, json, csv, re, nltk, pickle
 
 import numpy as np
 
-from scipy.sparse import csr_matrix
+from scipy.sparse import *
 from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import WordPunctTokenizer, punkt, sent_tokenize
 from tqdm import trange
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-
-NUM_WORDS = 252192  # 300
-SHUFFLE_SEED = 4
-
-# Analyser function for the count vectorizer to store ? and !
 
 def words_and_char(text):
     words = re.findall(r'\w{1,}|!|\?|[.]{2,}', text)
     for w in words:
         yield w
 
-def has_some_alphanumeric_characters(line):
+import ssl
+
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+NUM_WORDS = 252192 # 300
+SHUFFLE_SEED = 4
+
+def loader( filename, pickled_file=False ):
+
+    if pickled_file:
+        with open( filename, 'rb' ) as handle:
+            matrix, labels, vectorizer = pickle.load( handle )
+        return matrix, labels, vectorizer
+
+    else:
+        features, labels = [],[]
+        with open( filename, 'r', encoding="utf8", newline='\n') as data_file:
+            csv_reader = csv.reader(data_file, delimiter=',')
+            for row in csv_reader:
+                try:
+                    features.append(np.array(json.loads(row[0])))
+                    labels.append(np.array(json.loads(row[1])))
+                except IndexError:
+                    print( row )
+
+        X = np.array(features)
+        y = np.array(labels)
+
+        print('done')
+        print( X.shape )
+        print( y.shape )
+
+        return X,y
+
+def has_some_alphanumeric_characters( line ):
     """
     Re wrapper returning True/False depending on whether the input line (string) contains at least one alphabetic character.
-
+    
     Input:
-
+        
         line: a string.
-
+        
     Returns:
-
+    
         boolean True/False
-
+        
     """
-    if re.search('[a-zA-Z]', line):
+    # to handle misshappen ellipses:
+    formatted_line = re.sub( r'\...', r'…', line )
+    if re.search('[a-zA-Z!?…]', line):
         return True
     else:
         return False
 
+def sentence_tokenize( text: str, ntop=0, reverse=False ):
+    """
+    Wrapper around NLTK's sent_tokenize English sentence tokenizer.
 
-def word_tokenize(line: str):
+    Arguments:
+
+        text: text to tokenize into sentences. 
+
+        ntop: specifies how many sentences the function will return.
+
+        reverse: boolean indicator of whether the sentences should be returned in their original or reverse order.
+
+    Returns:
+
+        The ntop first/last sentences in the input text.
+
+    """
+    sentences = sent_tokenize( text )
+    if reverse:
+        if ntop > 0: 
+            return ' '.join( list( reversed( sentences ) )[:ntop] )
+        else:
+            return ' '.join( sentences[::-1] )
+    else:
+        if ntop > 0:
+            return ' '.join( sentences[:ntop] )
+        else:
+            return ' '.join( sentences )
+
+def word_tokenize( line: str, method='homebrew', verbose=False ):
     """
     Tokenizes input string into words (where each word has >= 1 letter).
-
+    
     Input:
-
+        
         line: string to tokenize into words.
+            
+        method: string indicating which tokenizing method to use (can be 'nltk.word_tokenize', 'WordPunctTokenizer', or 'homebrew').
 
-    Returns:
+        verbose: boolean indicator of verbosity. 
 
+    Returns: 
+        
         a list of all tokens with >= 1 alphabetic character.
-
+        
     """
-    return [word for word in nltk.word_tokenize(line) if has_some_alphanumeric_characters(word)]
+    assert method in ['pos','nltk.word_tokenize', 'WordPunctTokenizer', 'homebrew']
 
+    if method == 'pos':
+        wpt = nltk.WordPunctTokenizer()
+        text = wpt.tokenize(line )
+        text_tagged = nltk.pos_tag(text)
+        new_text = []
+        for word in text_tagged:
+            new_text.append(word[0] + "/" + word[1])
+            doc = ' '.join(new_text)
+        return doc
+    if method == 'WordPunctTokenizer':
+        return WordPunctTokenizer().tokenize( line ) 
 
-def decontract(line: str):
+    elif method == 'nltk.word_tokenize':
+        return [ word for word in nltk.word_tokenize( line ) if has_some_alphanumeric_characters( word ) ]
+
+    elif method == 'homebrew':
+        
+        if verbose:
+            print( f"{type( line )} {line}")
+        formatted_line = re.sub( r'\.\.\.', r'…', line )
+        
+        if verbose: 
+            print( f"became {formatted_line}")
+        
+        for ch in ['\?','!','…']:
+            formd_line = re.sub( ch, ' {}'.format( ch.strip( '\\' ) ), formatted_line ) # making ?s, !s, and …s 'word tokens'
+            formatted_line = formd_line
+        return [ word for word in formatted_line.split(' ') if has_some_alphanumeric_characters( word ) ]
+
+def decontract( line: str, 
+    contraction_decontraction_list=[( r"n't", r" not" ), ( r"'m", r" am" ), (r"'re", r" are"), (r"'ve", r" have"), (r"'ll", r" will") ] ):
     """
     Re wrapper to expand contractions (e.g. 'would_n't_' -> 'would not').
+
     Arguments:
+
         line: string to decontract.
+
+        contraction_decontraction_list: list of tuples where tuple[0] == contraction, tuple[1] == decontraction. 
+        
+        DISCLAIMER: since "'s" can be decontracted to "is" or "has", it is excluded by default. same goes for "'d" as it can be decontracted to "had" or "would"
     Returns:
+
         input string without contractions.
+
     """
-    re.sub(r"n't", r" not ", line)
 
+    for ( contract, decontract ) in contraction_decontraction_list:
+        dec_line = re.sub( contract, decontract, line )
+        line = dec_line
+    return line
 
-def lemmatize(word: str, lemmatizer=None):
+def lemmatize( word: str, lemmatizer=None ):
     """
     nltk.WordNetLemmatizer() wrapper to lemmatize a word.
+
     Arguments:
+
         word: string version of word to lemmatize.
+
         lemmatizer: None or some nltk.stem.wordnet.WordNetLemmatizer object.
+
     Returns:
+
         Lemmatized version of the input word.
+
     """
     if lemmatizer is None:
         lemmatizer = WordNetLemmatizer()
-
-    return lemmatizer.lemmatize(word)
-
+    
+    return lemmatizer.lemmatize( word )
 
 def preprocess_line(line):
     return list(line.lower().split(' '))
 
+def fetch_instances( path_to_pos, path_to_neg, verbose=True ):
 
-def fetch_instances(path_to_pos, path_to_neg, verbose=True):
     positive_instances = list()
-    if os.path.isdir(path_to_pos):
-        for file in os.listdir(os.path.join('train', 'pos')):
-            with open(os.path.join('train', 'pos', file), encoding="utf8") as f:
-                positive_instances.append(f.read())
-
+    if os.path.isdir( path_to_pos ):
+        for file in os.listdir( os.path.join( 'train', 'pos' ) ):
+            with open( os.path.join( 'train', 'pos', file ), encoding="utf8" ) as f:
+                positive_instances.append( f.read() )
+    
     if verbose:
         print("finished reading positive instance files")
 
     negative_instances = list()
-    if os.path.isdir(path_to_neg):
-        for file in os.listdir(os.path.join('train', 'neg')):
-            with open(os.path.join('train', 'neg', file), encoding="utf8") as f:
-                negative_instances.append(f.read())
+    if os.path.isdir( path_to_neg ):
+        for file in os.listdir( os.path.join( 'train', 'neg' ) ):
+            with open( os.path.join( 'train', 'neg', file ), encoding="utf8" ) as f:
+                negative_instances.append( f.read() )
 
     if verbose:
         print("finished reading negative instance files")
 
     # total_instances = positive_instances + negative_instances
-    num_docs = len(positive_instances) + len(negative_instances)
-
+    num_docs = len( positive_instances ) + len( negative_instances )
+    
+    positive_instances.sort()
+    negative_instances.sort()
     return positive_instances, negative_instances, num_docs
 
+class CustomTokenizer():
+    """
+    Wrapper class around the word_tokenize function.
+    """
+    def __init__( self, tokenizing_funct=word_tokenize ):
+        self.funct = tokenizing_funct
 
-def create_count_matrix(input_list, verbose=True):
+    def __call__( self, doc ):
+        #print( f"calling {self.funct}, {self.funct.__name__}")
+        #print( doc )
+        #print( "became" )
+        res = self.funct( doc )
+        #print( res )
+        return res
+
+def create_count_matrix( input_list, verbose=True ):
     """
     Wrapper around scikit-learn's CountVectorizer class.
-    Arguments:
-        input_list: list of strings.
-    Returns:
-        count_feat_mat: feature count csr_matrix.
 
+    Arguments:
+
+        input_list: list of strings.
+
+    Returns:
+
+        count_feat_mat: feature count csr_matrix.
+        
         count_vectorizer: vectorizer object, see https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html#sklearn.feature_extraction.text.CountVectorizer
+
     """
     if verbose:
         print(f"launching create_count_matrix")
@@ -124,58 +261,67 @@ def create_count_matrix(input_list, verbose=True):
         input='content',
         encoding='utf-8',
         strip_accents=None,
-        lowercase=True,
+        lowercase=True, 
         # preprocessor=<preprocessor>,
         # tokenizer=<tokenizer>,
-        stop_words=None,  # or 'english' or list
+        tokenizer=CustomTokenizer(),
+        stop_words=None, # or 'english' or list
         # token_pattern
-        # ngram_range
-        analyzer=words_and_char,
+        token_pattern=None,
+        ngram_range=(1,3),
+        analyzer="word",
         max_df=1.0,
         min_df=1,
-        max_features=None,  # could be int
+        max_features=None, # could be int
         # vocabulary: a mapping object, could be useful to map term<->index in output matrix
         binary=False,
         # dtype
     )
 
-    count_feat_mat = count_vectorizer.fit_transform(input_list)
+    count_feat_mat = count_vectorizer.fit_transform( input_list )
     if verbose:
         print(f"finished create_count_matrix")
-
+        
     return count_feat_mat, count_vectorizer
 
-
-def create_tfidf_matrix(input_list, vocabulary_kwarg=None, verbose=True):
+def create_tfidf_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
     """
     Wrapper around scikit-learn's TfidfVectorizer class.
+
     Arguments:
+
         input_list: list of strings.
+
         vocabulary_kwarg:   optional dictionary argument to match the token<->column index mapping
                             of the output matrix to a specific mapping.
-    Returns:
-        tfidf_feat_mat: tf-idf csr_matrix.
 
+    Returns:
+
+        tfidf_feat_mat: tf-idf csr_matrix.
+        
         tfidf_vectorizer: vectorizer object, see https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html
+
     """
     if verbose:
         print(f"launching create_tfidf_matrix")
-
+        
     tfidf_vectorizer = TfidfVectorizer(
         input='content',
         encoding='utf-8',
         strip_accents=None,
-        lowercase=True,
+        lowercase=True, 
         # preprocessor=<preprocessor>,
         # tokenizer=<tokenizer>,
-        analyzer=words_and_char,
-        stop_words=None,  # or 'english' or list
+        tokenizer=CustomTokenizer(),
+        analyzer="word",
+        stop_words=None, # or 'english' or list
         # token_pattern
-        # ngram_range
+        token_pattern=None,
+        ngram_range=(1,3),
         max_df=1.0,
         min_df=1,
-        max_features=None,  # could be int
-        vocabulary=vocabulary_kwarg,  # a mapping object, could be useful to map term<->index in output matrix
+        max_features=None, # could be int
+        vocabulary=vocabulary_kwarg, # a mapping object, could be useful to map term<->index in output matrix
         binary=False,
         # dtype
         # norm: 'l1', 'l2', or None
@@ -183,38 +329,121 @@ def create_tfidf_matrix(input_list, vocabulary_kwarg=None, verbose=True):
         smooth_idf=True,
         sublinear_tf=False
     )
-    tfidf_feat_mat = tfidf_vectorizer.fit_transform(input_list)
+
+    tfidf_feat_mat = tfidf_vectorizer.fit_transform( input_list )
     if verbose:
         print(f"finished create_tfidf_matrix")
-
+        
     return tfidf_feat_mat, tfidf_vectorizer
 
 
+
 def main():
+
     pos_instances_list, neg_instances_list, num_docs = fetch_instances(
-        os.path.join('train', 'pos'),
-        os.path.join('train', 'neg')
+        os.path.join( 'train', 'pos' ),
+        os.path.join( 'train', 'neg' )
     )
 
-    training_class_labels = np.array([1] * len(pos_instances_list) + [0] * len(neg_instances_list))  # pos = 1, neg = 0
+    '''
+    This was to select the first and last sentences only, it didn't help.
+    #pos_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in pos_instances_list ]
+    #pos_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in pos_instances_list ]
+    #pos_instances_list = [ first+' '+last for ( first, last ) in zip( pos_instances_firstline, pos_instances_lastline) if first != last ]
 
-    training_count_feat_mat, training_count_vectorizer = create_count_matrix(pos_instances_list + neg_instances_list)
-    token_to_col_index_dict = training_count_vectorizer.vocabulary_
+    #neg_instances_lastline = [ sentence_tokenize( review, ntop=1, reverse=True ) for review in neg_instances_list ]
+    #neg_instances_firstline = [ sentence_tokenize( review, ntop=1, reverse=False ) for review in neg_instances_list ]
+    #neg_instances_list = [ first+' '+last for ( first, last ) in zip( neg_instances_firstline, neg_instances_lastline ) if first != last ]
+    '''
+    pos_instances_list = [ word_tokenize( review,'pos') for review in pos_instances_list ]
 
-    training_tfidf_feat_mat, training_tfidf_vectorizer = create_tfidf_matrix(pos_instances_list + neg_instances_list,
-                                                                             vocabulary_kwarg=token_to_col_index_dict)
+    neg_instances_list = [ word_tokenize( review,'pos',) for review in neg_instances_list ]
+
+
+    word_count = np.array(
+            [ len( word_tokenize( instance ) ) for instance in pos_instances_list+neg_instances_list ]
+        )
+    
+    sentences_count = np.array( 
+            [ len( sentence_tokenize( instance, ntop=0 ) ) for instance in pos_instances_list+neg_instances_list ]
+         )
+    
+    avg_word_per_sentences = word_count / sentences_count
+
+    word_count = csr_matrix( word_count ).transpose()
+    sentences_count = csr_matrix( sentences_count ).transpose()
+    avg_word_per_sentences = csr_matrix( avg_word_per_sentences ).transpose()
+
+    training_class_labels = np.array( [1]*len( pos_instances_list ) + [0]*len( neg_instances_list ) ) # pos = 1, neg = 0
+
+    training_count_feat_mat, training_count_vectorizer = create_count_matrix( pos_instances_list+neg_instances_list )
+    token_to_col_index_dict = training_count_vectorizer.vocabulary_ 
+
+    training_tfidf_feat_mat, training_tfidf_vectorizer = create_tfidf_matrix( pos_instances_list+neg_instances_list, vocabulary_kwarg=token_to_col_index_dict )
+
+
+    ### Add features here ###
+    training_count_feat_mat = csr_matrix(
+        hstack(
+            [ training_count_feat_mat, word_count, sentences_count, avg_word_per_sentences ]
+        )
+    )
+
+    training_tfidf_feat_mat = csr_matrix(
+        hstack(
+            [ training_tfidf_feat_mat, word_count, sentences_count, avg_word_per_sentences ]
+        )
+    )
+    # adding the number of words
+    '''
+    training_count_feat_mat = hstack( # takes the row-wise sum of training_count_feat_mat and adds the resulting column as the rightmost column of training_count_feat_mat
+        [ training_count_feat_mat, 
+        training_count_feat_mat.sum( axis=1 ) ] 
+    )
+
+    or just use 
+
+    word_count = csr_matrix(
+        np.array(
+            [ len( word_tokenize( instance ) ) for instance in pos_instances_list+neg_instances_list ]
+        )
+    )
+    '''
+    # adding the number of sentences
+    '''
+    sentences_count = csr_matrix(
+        np.array( 
+            [ len( sentence_tokenize( instance, ntop=0 ) ) for instance in pos_instances_list+neg_instances_list ]
+         )
+    )
+
+    training_count_feat_mat = hstack(
+        [ training_count_feat_mat,
+        sentences_count ]
+    )
+
+    avg_word_per_sentences = csr_matrix(
+        word_count.toarray() / sentences_count.toarray()
+    )
+    '''
+
 
     print("pickling")
-    with open('training_count_feat_mat_and_vectorizer.pickle', 'wb') as handle:
-        pickle.dump((training_count_feat_mat, training_class_labels, training_count_vectorizer), handle,
-                    protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open('training_tfidf_feat_mat_and_vectorizer.pickle', 'wb') as handle:
-        pickle.dump((training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer), handle,
-                    protocol=pickle.HIGHEST_PROTOCOL)
+    metadata={
+        "review":"entire",
+        "n-grams":"(1,2,3)",
+        "additional features":"word count, sentences count, avg word/sentence",
+        "tokenizer":"homebrew"
+    }
 
+    with open( 'entire_(1-3)_wc_sc_wps_homebrew_count_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
+        pickle.dump( ( training_count_feat_mat, training_class_labels, training_count_vectorizer, {"pos_instances_list":pos_instances_list, "neg_instances_list":neg_instances_list}, metadata ), handle, protocol=pickle.HIGHEST_PROTOCOL )
+    
+    with open( 'entire_(1-3)_wc_sc_wps_homebrew_tfidf_feat_mat_labels_and_vectorizer.pickle', 'wb' ) as handle:
+        pickle.dump( ( training_tfidf_feat_mat, training_class_labels, training_tfidf_vectorizer, {"pos_instances_list":pos_instances_list, "neg_instances_list":neg_instances_list}, metadata ), handle, protocol=pickle.HIGHEST_PROTOCOL )
+    
     print(f"finished")
-
 
 if __name__ == '__main__':
     main()
