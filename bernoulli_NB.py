@@ -178,7 +178,6 @@ class homemade_BernoulliNB():
 
         return class_preds.astype( int )
 
-
 def binary_bernoulli_NB( binary_feature_array: np.ndarray, binary_class_vec: np.ndarray, laplace_smoothing=True ):
     """
     This function has been implemented in the homemade_BernoulliNB class.
@@ -275,7 +274,7 @@ if __name__ == '__main__':
     classes =  np.random.randint( 0, 2, ( 100 ) )
     features = csr_matrix( np.random.randint( 0, 2, ( 100, 10 ) ) )
 
-    # using the functions individually, res == learned probabilities from training
+    # using the functions individually, use the following line (where res == learned probabilities from training )
     # logp0, logp1, res =  binary_bernoulli_NB( features, classes) 
     
     # sanity check with sklearn's BernoulliNB classifier
@@ -283,24 +282,18 @@ if __name__ == '__main__':
     sanity_check.fit( features, classes )
 
     # sanity check with homemade_BernoulliNB class
-    homemade_sanity_check = homemade_BernoulliNB()
-    homemade_sanity_check.fit( features, classes )
+    homemade_bernNB = homemade_BernoulliNB()
+    homemade_bernNB.fit( features, classes )
     
     # generating 1,000,000 random test datasets
     for i in range( 100 ):
-        print( i )
-        tests = np.random.randint( 0, 2, ( 10, 10 ) )
+        tests = np.random.randint( 0, 2, ( 100, 10 ) )
         
         sanity_preds = sanity_check.predict( tests )
-        homemade_sanity_preds = homemade_sanity_check.predict( tests )
+        homemade_sanity_preds = homemade_bernNB.predict( tests )
         
-        '''my_preds = []
-        for t in tests:
-            my_preds.append( predict( res, [ logp0, logp1 ], t ) )
-        '''
-        print( homemade_sanity_preds )
-        print( sanity_preds )
-        #assert ( np.array_equal( np.array( my_preds ), sanity_preds ) )
+        #print( homemade_sanity_preds )
+        #print( sanity_preds )
         
         assert( np.array_equal( sanity_preds, homemade_sanity_preds ) )
     
