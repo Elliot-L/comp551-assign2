@@ -7,9 +7,16 @@ from bernoulli_NB import homemade_BernoulliNB
 from pipelines import strat_k_fold
 from tf_idf import * 
 
-
 def run_experiment( X_float, y_float ):
+    """
+    Function to use the homemade bernoulli_NB classifier on the feature matrix and target/class matrix provided.
 
+    Arguments:
+
+        X_float: | instances | x | features | -shaped numpy array ( of dtype = float ) representing the feature matrix.
+
+        y_float: | instances | x 1 -shaped numpy vector representing the target labels.
+    """
     X = X_float.astype( bool )
     y = ( y_float > 0 ).astype( int )
     
