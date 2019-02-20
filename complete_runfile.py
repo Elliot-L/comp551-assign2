@@ -357,12 +357,12 @@ def word_tokenize( line: str, method='homebrew', verbose=False ):
 
     elif method == 'homebrew':
         
-        if verbose:
-            print( f"{type( line )} {line}")
+        #if verbose:
+        #    print( f"{type( line )} {line}")
         formatted_line = re.sub( r'\.\.\.', r'…', line )
         
-        if verbose: 
-            print( f"became {formatted_line}")
+        #if verbose: 
+        #    print( f"became {formatted_line}")
         
         for ch in ['\?','!','…']:
             formd_line = re.sub( ch, ' {}'.format( ch.strip( '\\' ) ), formatted_line ) # making ?s, !s, and …s 'word tokens'
@@ -918,7 +918,7 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
         decontract_reviews=False 
     )
 
-    print( metadata_for_text_to_matrix )
+    print( metadata_for_text_to_matrix['preprocessing arguments'] )
 
     if validate:
         kfold_validation_results = run_kfold_experiment( training_feature_matrix, training_labels )
