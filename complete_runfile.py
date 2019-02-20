@@ -505,29 +505,7 @@ def preprocess_and_gen_feat_matrices( pos_instances_list, neg_instances_list, te
         neg_instances_list = decontracted_neg_instances_list
         test_instances_list = decontracted_test_instances_list
 
-    if POStags:
-        if verbose:
-            print("POS-tagging reviews - this may take a while")
-        POStagged_pos_instances_list = []
-        for ind in trange( len( pos_instances_list ) ):
-            POStagged_pos_instances_list.append( word_tokenize( pos_instances_list[ind], method='pos' ) )
-        
-        POStagged_neg_instances_list = []
-        for ind in trange( len( neg_instances_list ) ):
-            POStagged_neg_instances_list.append( word_tokenize( neg_instances_list[ind], method='pos' ) )
-
-        POStagged_test_instances_list = []
-        for ind in trange( len( test_instances_list ) ):
-            POStagged_test_instances_list.append( word_tokenize( test_instances_list[ind], method='pos' ) )
-
-        del pos_instances_list
-        del neg_instances_list
-        del test_instances_list
-
-        pos_instances_list = POStagged_pos_instances_list
-        neg_instances_list = POStagged_neg_instances_list
-        test_instances_list = POStagged_test_instances_list
-
+    
     # 1. basic word and sentence count features #
     ## 1.1 for the training data ##
     train_word_count = np.array(
@@ -593,7 +571,7 @@ def preprocess_and_gen_feat_matrices( pos_instances_list, neg_instances_list, te
         ### convert lists -> csr_matrices
         train_valent_scores_csr, train_valent_word_counts_csr, train_valency_ratio_csr = \
             csr_matrix( train_valent_scores_list ).transpose() , csr_matrix( train_valent_word_counts_list ).transpose(), csr_matrix( train_valency_ratio_list ).transpose()
-        test_valent_scores_csr, test_valent_word_counts_csr = \
+        test_valent_scores_csr, test_valent_word_counts_csr, test_valency_ratio_csr = \
             csr_matrix( test_valent_scores_list ).transpose(), csr_matrix( test_valent_word_counts_list ).transpose(), csr_matrix( test_valency_ratio_list ).transpose()
 
         ### delete lists for memory footprint
@@ -627,6 +605,28 @@ def preprocess_and_gen_feat_matrices( pos_instances_list, neg_instances_list, te
         del test_hu_liu_negative_word_overlap_list
     
     # 3. POS tagging #
+    if POStags:
+        if verbose:
+            print("POS-tagging reviews - this may take a while")
+        POStagged_pos_instances_list = []
+        for ind in trange( len( pos_instances_list ) ):
+            POStagged_pos_instances_list.append( word_tokenize( pos_instances_list[ind], method='pos' ) )
+        
+        POStagged_neg_instances_list = []
+        for ind in trange( len( neg_instances_list ) ):
+            POStagged_neg_instances_list.append( word_tokenize( neg_instances_list[ind], method='pos' ) )
+
+        POStagged_test_instances_list = []
+        for ind in trange( len( test_instances_list ) ):
+            POStagged_test_instances_list.append( word_tokenize( test_instances_list[ind], method='pos' ) )
+
+        del pos_instances_list
+        del neg_instances_list
+        del test_instances_list
+
+        pos_instances_list = POStagged_pos_instances_list
+        neg_instances_list = POStagged_neg_instances_list
+        test_instances_list = POStagged_test_instances_list
 
     # 4. compute lexical feature counts/tf-idf #
     ## 4.1 instantiate vectorizer ##
@@ -905,17 +905,17 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
         pos_train_instances,
         neg_train_instances,
         test_instances, 
-        ngram_range=(1,3),
-        warriner=False,
+        ngram_range=(1,2),
+        warriner=True,
         hu_liu_posneg=False,
-        tfidf=False,
+        tfidf=True,
         POStags=True,
-        emp_reg_min=1,
+        emp_reg_min=10,
         to_lowercase=True, 
         remove_stopwords=None,
         max_num_vector_features=None,  
         verbose=True,
-        decontract_reviews=False 
+        decontract_reviews=True 
     )
 
     #print( metadata_for_text_to_matrix['preprocessing arguments'] )
