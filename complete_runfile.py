@@ -341,8 +341,8 @@ def word_tokenize( line: str, method='homebrew', verbose=False ):
 
     if method == 'pos':
         wpt = nltk.WordPunctTokenizer()
-        text = wpt.tokenize(line )
-        text_tagged = nltk.pos_tag(text)
+        text = wpt.tokenize( line )
+        text_tagged = nltk.pos_tag( text )
         new_text = []
         for word in text_tagged:
             new_text.append(word[0] + "/" + word[1])
@@ -504,6 +504,29 @@ def preprocess_and_gen_feat_matrices( pos_instances_list, neg_instances_list, te
         pos_instances_list = decontracted_pos_instances_list
         neg_instances_list = decontracted_neg_instances_list
         test_instances_list = decontracted_test_instances_list
+
+    if POStags:
+        if verbose:
+            print("POS-tagging reviews - this may take a while")
+        POStagged_pos_instances_list = []
+        for ind in trange( len( pos_instances_list ) ):
+            POStagged_pos_instances_list.append( word_tokenize( pos_instances_list[ind], method='pos' ) )
+        
+        POStagged_neg_instances_list = []
+        for ind in trange( len( neg_instances_list ) ):
+            POStagged_neg_instances_list.append( word_tokenize( neg_instances_list[ind], method='pos' ) )
+
+        POStagged_test_instances_list = []
+        for ind in trange( len( test_instances_list ) ):
+            POStagged_test_instances_list.append( word_tokenize( test_instances_list[ind], method='pos' ) )
+
+        del pos_instances_list
+        del neg_instances_list
+        del test_instances_list
+
+        pos_instances_list = POStagged_pos_instances_list
+        neg_instances_list = POStagged_neg_instances_list
+        test_instances_list = POStagged_test_instances_list
 
     # 1. basic word and sentence count features #
     ## 1.1 for the training data ##
@@ -895,6 +918,8 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
         decontract_reviews=False 
     )
 
+    print( metadata_for_text_to_matrix )
+
     if validate:
         kfold_validation_results = run_kfold_experiment( training_feature_matrix, training_labels )
     
@@ -913,4 +938,4 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
             pickle.dump( pickle_dictionary, protocol=pickle.HIGHEST_PROTOCOL )
         
 if __name__ == '__main__':
-    main( 'dummy.txt', validate=False, test=True, pickle_matrices_filename=False )
+    main( 'dummy.txt', validate=True, test=False, pickle_matrices_filename=False )
