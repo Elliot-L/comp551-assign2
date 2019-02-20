@@ -44,11 +44,11 @@ def kfold_plotter( training_indices, testing_indices ):
     for i, ( cv_train, cv_test ) in enumerate( zip( training_indices, testing_indices ) ):
         cv_train += 1
         cv_test += 1
-        print( cv_train )
+        #print( cv_train )
         X_train_groups = [ list( group ) for group in consecutive_groups( cv_train ) ]
         X_test_groups = [ list( group ) for group in consecutive_groups( cv_test ) ]
-        print( X_train_groups )
-        print( X_test_groups )
+        #print( X_train_groups )
+        #print( X_test_groups )
         x_train_test_ranges = X_train_groups + X_test_groups
         x_train_test_ranges.sort( key=lambda x:x[0] )
         for x_range in x_train_test_ranges:
@@ -918,7 +918,7 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
         decontract_reviews=False 
     )
 
-    print( metadata_for_text_to_matrix['preprocessing arguments'] )
+    #print( metadata_for_text_to_matrix['preprocessing arguments'] )
 
     if validate:
         kfold_validation_results = run_kfold_experiment( training_feature_matrix, training_labels )
