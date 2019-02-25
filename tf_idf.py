@@ -226,7 +226,7 @@ class CustomTokenizer():
         #print( res )
         return res
 
-def create_count_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
+def create_count_matrix( input_list, vocabulary_kwarg=None, verbose=True, ngram_range=(1,2) ):
     """
     Wrapper around scikit-learn's CountVectorizer class.
 
@@ -257,7 +257,7 @@ def create_count_matrix( input_list, vocabulary_kwarg=None, verbose=True ):
             stop_words=None, # or 'english' or list
             # token_pattern
             token_pattern=None,
-            ngram_range=(1,2),
+            ngram_range=ngram_range,
             analyzer="word",
             max_df=1.0,
             min_df=1,

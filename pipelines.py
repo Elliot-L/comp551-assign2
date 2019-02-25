@@ -100,7 +100,7 @@ def add_n_most_common_words_features( features_array: np.ndarray, new_feature_ar
     else:
         return np.hstack( ( features_array, new_feature_array ) )
     
-def add_transformed_feature( features_array: np.ndarray, feature_column_index: int, transform, sparse=False, *args, **kwargs ):
+def add_transformed_feature( features_array, feature_column_index, transform, sparse=False, *args, **kwargs ):
     """
     S.C.
     Function to apply "transform" to the feature_column_index-th feature column of features_array and append its
@@ -131,7 +131,7 @@ def add_transformed_feature( features_array: np.ndarray, feature_column_index: i
         [ [ features_array ] [ transformed feature ] ] representation of updated features_array.
 
     """
-    assert feature_column_index < features_array.shape[1]
+    # assert feature_column_index < features_array.shape[1]
     
     if not sparse: 
         transformed_feature = transform( features_array[ :, feature_column_index ], *args, **kwargs )
@@ -141,7 +141,7 @@ def add_transformed_feature( features_array: np.ndarray, feature_column_index: i
         dense_features_array = features_array.toarray()
         transformed_feature = transform( dense_features_array[ :, feature_column_index ], *args, **kwargs )
         transformed_feature = np.reshape( transformed_feature, ( len( transformed_feature ) , 1 ) )
-        transformed_features_array = np.hsatck( ( features_array, transformed_feature ) )
+        transformed_features_array = np.hstack( ( features_array, transformed_feature ) )
         return csr_matrix( transformed_features_array )
 
 def leave_one_out(X,y):
