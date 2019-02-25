@@ -905,12 +905,12 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
         pos_train_instances,
         neg_train_instances,
         test_instances, 
-        ngram_range=(1,2),
-        warriner=True,
-        hu_liu_posneg=False,
-        tfidf=True,
+        ngram_range=(1,3),
+        warriner=False,
+        hu_liu_posneg=True,
+        tfidf=False,
         POStags=True,
-        emp_reg_min=10,
+        emp_reg_min=3,
         to_lowercase=True, 
         remove_stopwords=None,
         max_num_vector_features=None,  
@@ -919,7 +919,7 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
     )
 
     #print( metadata_for_text_to_matrix['preprocessing arguments'] )
-
+    print( training_feature_matrix.shape )
     if validate:
         kfold_validation_results = run_kfold_experiment( training_feature_matrix, training_labels )
     
@@ -935,7 +935,7 @@ def main( outputfilename, validate=True, test=False, pickle_matrices_filename=Fa
             'metadata': metadata_for_text_to_matrix
         }
         with open( pickle_matrices_filename, 'wb' ) as handle:
-            pickle.dump( pickle_dictionary, protocol=pickle.HIGHEST_PROTOCOL )
+            pickle.dump( pickle_dictionary, handle, protocol=pickle.HIGHEST_PROTOCOL )
         
 if __name__ == '__main__':
-    main( 'dummy.txt', validate=True, test=False, pickle_matrices_filename=False )
+    main( 'dummy_results_output_file.txt', validate=True, test=False, pickle_matrices_filename="dummy_experiment_output.pickle" )
